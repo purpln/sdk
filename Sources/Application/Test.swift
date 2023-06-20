@@ -1,7 +1,12 @@
 import Architecture
+import File
+import Piece
 import Coding
 
 struct Test: Scene {
+    var sdk: SDK
+    var package: Package
+    
     func execute() async {
         while true {
             do {
@@ -15,9 +20,33 @@ struct Test: Scene {
         }
     }
     
+    init(sdk: SDK, package: Package) {
+        self.sdk = sdk
+        self.package = package
+    }
+    
     func test() throws {
+        try pieces(path: "/Users/purpln/github/uswift")
+    }
+    
+    func pieces(path: String) throws {
+        try launch(command: sdk.package, arguments: ["describe", "--type json"], path: path) { string in
+            let action: () -> Void = {
+                guard let pieces = Conventer(string.utf8).decode() else { print("error"); return }
+                print(pieces)
+                print("success")
+                
+                //0.000527083 seconds //0.002044709 seconds
+            }
+            
+            let time = ContinuousClock().measure(action)
+            print(time)
+        }
+    }
+    
+    func coding() {
         var library: Library = .init()
-        library.configure(values: ["sources": ["Int.swift", "Float.swift"], "target": ["board": "teensy", "arguments":["-v"]]])
+        //library.configure(values: ["sources": ["Int.swift", "Float.swift"], "target": ["board": "teensy", "arguments":["-v"]]])
         print("\n", library.target?.board ?? "nil")
     }
 }
@@ -32,7 +61,7 @@ public struct Library: Coding {
     }
 }
 
-public class Target: Coding {
+public struct Target: Coding {
     var board: String?
     var arguments: [String]
     

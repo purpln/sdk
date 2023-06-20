@@ -3,28 +3,24 @@ public enum Piece: Hashable, Equatable {
     public typealias Value = Piece
     public typealias Index = Int
     
-    case error(String)
     case null
     case bool(Bool)
-    case number(Double)
+    case double(Double)
     case string(String)
     case array([Value])
     case object([Key: Value])
 }
 
 extension Piece: CustomStringConvertible {
-    public var description: String {
-        string(space: 4)
-    }
+    public var description: String { string(space: 4) }
     
     public func string(depth: Int = 0, separator: String = "", terminator: String = "", sorted: Bool = false) -> String {
         let i = String(repeating: separator, count: depth)
         let g = separator == "" ? "" : " "
         switch self {
-        case .error(let string): return #".error("\#(string)")"#
         case .null: return "null"
         case .bool(let value): return value.description
-        case .number(let value): return value.description
+        case .double(let value): return value.description
         case .string(let value): return value.debugDescription
         case .array(let array):
             let value = array
@@ -60,12 +56,12 @@ extension Piece: ExpressibleByNilLiteral,
     public init(booleanLiteral value: Bool)      { self = .bool(value) }
     
     public typealias FloatLiteralType = Double
-    public init(_ value: Double)                 { self = .number(value) }
-    public init(floatLiteral value: Double)      { self = .number(value) }
+    public init(_ value: Double)                 { self = .double(value) }
+    public init(floatLiteral value: Double)      { self = .double(value) }
     
     public typealias IntegerLiteralType = Int
-    public init(_ value: Int)                    { self = .number(Double(value)) }
-    public init(integerLiteral value: Int)       { self = .number(Double(value)) }
+    public init(_ value: Int)                    { self = .double(Double(value)) }
+    public init(integerLiteral value: Int)       { self = .double(Double(value)) }
     
     public typealias StringLiteralType = String
     public init(_ value: String)                 { self = .string(value) }
@@ -85,15 +81,14 @@ extension Piece: ExpressibleByNilLiteral,
 
 extension Piece {
     public enum ContentType {
-        case error, null, bool, number, string, array, object
+        case error, null, bool, double, string, array, object
     }
     
     public var type:ContentType {
         switch self {
-        case .error(_):     return .error
         case .null:         return .null
         case .bool(_):      return .bool
-        case .number(_):    return .number
+        case .double(_):    return .double
         case .string(_):    return .string
         case .array(_):     return .array
         case .object(_):    return .object
@@ -101,15 +96,14 @@ extension Piece {
     }
     
     public var null: Bool { return type == .null }
-    public var error: String? { if case .error(let error) = self { return error } else { return nil } }
     
     public var bool: Bool? {
         get { if case .bool(let value) = self { return value } else { return nil } }
         set { self = .bool(newValue!) }
     }
     public var number: Double? {
-        get { if case .number(let value) = self { return value } else { return nil } }
-        set { self = .number(newValue!) }
+        get { if case .double(let value) = self { return value } else { return nil } }
+        set { self = .double(newValue!) }
     }
     public var string: String? {
         get { if case .string(let value) = self { return value } else { return nil } }
@@ -122,6 +116,12 @@ extension Piece {
     public var object: [Key: Value]?  {
         get { if case .object(let object) = self { return object } else { return nil } }
         set { self = .object(newValue!) }
+    }
+}
+
+extension Piece {
+    func log(_ string: String) {
+        print(string)
     }
 }
 
@@ -173,7 +173,8 @@ extension Piece: Sequence {
                 pairs.forEach { o[$0.0.key!] = $0.1 }
                 return .object(o)
             default:
-                return .error("not iterable: \(node.type)")
+                log("not iterable: \(node.type)")
+                return .null
             }
         }, visit: visit)
     }
@@ -190,51 +191,57 @@ extension Piece: Sequence {
                 pairs.filter { picker($0.1) }.forEach { o[$0.0.key!] = $0.1 }
                 return .object(o)
             default:
-                return .error("not iterable: \(node.type)")
+                log("not iterable: \(node.type)")
+                return .null
             }
         }
     }
 }
 
 extension Piece {
-    public subscript(_ idx: Index) -> Self {
+    public subscript(_ index: Index) -> Self {
         get {
             switch self {
-            case .error(_):
-                return self
             case .array(let array):
-                guard idx < array.count else { return .error("out of range \(idx)") }
-                return array[idx]
+                guard index < array.count else {
+                    log("out of range \(type) \(index)")
+                    return .null
+                }
+                return array[index]
             default:
-                return .error("not subscriptable \(type)")
+                log("not subscriptable \(type)")
+                return .null
             }
         }
         set {
             switch self {
             case .array(var array):
-                if idx < array.count {
-                    array[idx] = newValue
+                if index < array.count {
+                    array[index] = newValue
                 } else {
-                    for _ in array.count ..< idx {
+                    for _ in array.count ..< index {
                         array.append(.null)
                     }
                     array.append(newValue)
                 }
                 self = .array(array)
             default:
-                fatalError("\"\(self)\" is not an array")
+                log("\(type) is not an array")
             }
         }
     }
     public subscript(_ key: Key) -> Self {
         get {
             switch self {
-            case .error(_):
-                return self
             case .object(let object):
-                return object[key] ?? .error("\(key) not exist")
+                guard let value = object[key] else {
+                    log("\(key) not exist")
+                    return .null
+                }
+                return value
             default:
-                return .error("not subscriptable \(type)")
+                log("not subscriptable \(type)")
+                return .null
             }
         }
         set {
@@ -243,7 +250,7 @@ extension Piece {
                 object[key] = newValue
                 self = .object(object)
             default:
-                fatalError("\"\(self)\" is not an object")
+                log("\(type) is not an object")
             }
         }
     }
@@ -264,17 +271,17 @@ extension Piece: Codable {
             for type in Self.codableTypes {
                 switch type {
                 case let t as Bool.Type:         if let v = try? c.decode(t) { self = .bool(v); return }
-                case let t as Int.Type:          if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as Int8.Type:         if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as Int32.Type:        if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as Int64.Type:        if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as UInt.Type:         if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as UInt8.Type:        if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as UInt16.Type:       if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as UInt32.Type:       if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as UInt64.Type:       if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as Float.Type:        if let v = try? c.decode(t) { self = .number(Double(v)); return }
-                case let t as Double.Type:       if let v = try? c.decode(t) { self = .number(v); return }
+                case let t as Int.Type:          if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as Int8.Type:         if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as Int32.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as Int64.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as UInt.Type:         if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as UInt8.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as UInt16.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as UInt32.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as UInt64.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as Float.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
+                case let t as Double.Type:       if let v = try? c.decode(t) { self = .double(v); return }
                 case let t as String.Type:       if let v = try? c.decode(t) { self = .string(v); return }
                 case let t as [Value].Type:      if let v = try? c.decode(t) { self = .array(v); return }
                 case let t as [Key: Value].Type: if let v = try? c.decode(t) { self = .object(v); return }
@@ -292,7 +299,7 @@ extension Piece: Codable {
         }
         switch self {
         case .bool(let v):      try c.encode(v)
-        case .number(let v):    try c.encode(v)
+        case .double(let v):    try c.encode(v)
         case .string(let v):    try c.encode(v)
         case .array(let v):     try c.encode(v)
         case .object(let v):    try c.encode(v)

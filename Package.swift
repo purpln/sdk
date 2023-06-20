@@ -17,9 +17,11 @@ let package = Package(
         .executableTarget(name: "Application", dependencies: [
             .target(name: "Architecture"),
             .target(name: "Coding"),
+            .target(name: "File"),
             .target(name: "Piece"),
         ]),
         .target(name: "Coding"),
+        .target(name: "File"),
         .target(name: "Piece"),
     ]
 )
