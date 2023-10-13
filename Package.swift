@@ -18,11 +18,13 @@ let package = Package(
             .target(name: "Architecture"),
             .target(name: "Coding"),
             .target(name: "File"),
-            .target(name: "Piece"),
+            .target(name: "Pieces"),
+            .target(name: "Process"),
         ]),
         .target(name: "Coding"),
         .target(name: "File"),
-        .target(name: "Piece"),
+        .target(name: "Pieces"),
+        .target(name: "Process"),
     ]
 )
 

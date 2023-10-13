@@ -3,17 +3,17 @@ import Darwin.C
 #elseif os(Linux) || os(Android) || os(FreeBSD)
 import Glibc
 #endif
-
-public func launch(command: String, arguments: [String] = [], path: String? = nil, environment: [String: String] = [:], debug: Bool = false, closure: ((String) throws -> Void)?) throws {
-    let success = process(command: command, arguments: arguments, path: path, environment: environment, debug: debug, redirect: closure != nil) { string in
+/*
+public func run(command: String, arguments: [String] = [], path: String? = nil, environment: [String: String] = [:], debug: Bool = false, closure: (String) throws -> Void = { _ in }) throws {
+    let success = process(command: command, arguments: arguments, path: path, environment: environment, debug: debug, redirect: true) { string in
         do {
-            try closure?(string)
+            try closure(string)
         } catch { }
     }
-    guard success else { throw Fault.failure("launch command") }
+    guard success else { throw Fault.launch }
 }
-
-private func process(command: String, arguments: [String], path: String?, environment: [String: String], debug: Bool, redirect: Bool, _ closure: @escaping (String) -> Void) -> Bool {
+*/
+func process(command: String, arguments: [String], path: String?, environment: [String: String], debug: Bool, redirect: Bool, closure: (String) -> Void) -> Bool {
     let space = arguments.count == 0 ? "" : " "
     let final = command + space + arguments.joined(separator: " ")
     let argument: String
@@ -26,7 +26,7 @@ private func process(command: String, arguments: [String], path: String?, enviro
     return process(arguments: arguments, environment: environment, redirect: redirect, closure)
 }
 
-private func process(arguments: [String], environment: [String: String], redirect: Bool, _ closure: @escaping (String) -> Void) -> Bool {
+private func process(arguments: [String], environment: [String: String], redirect: Bool, _ closure: (String) -> Void) -> Bool {
     var pipes: [Int32] = [0, 0]
     var rv = pipe(&pipes)
     guard rv == 0 else { fatalError("open pipe") }

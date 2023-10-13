@@ -8,7 +8,7 @@ import Glibc
 public class File {
     var pointer: UnsafeMutablePointer<FILE>
     
-    public init?(path: String, mode: Mode) {
+    public init?(path: String, mode: Mode = .readAndWrite) {
         pointer = fopen(path, mode.rawValue)
     }
     
@@ -24,6 +24,10 @@ public class File {
         let read = fread(&array, 1, count, pointer)
         if read != count { print("read error") }
         return array
+    }
+    
+    public func write<ByteSequence: Collection>(_ sequence: ByteSequence) where ByteSequence.Iterator.Element == UInt8 {
+        write(bytes: Array(sequence))
     }
     
     public func write(bytes: [UInt8]) {
@@ -42,3 +46,4 @@ public extension File {
         case appendAndRead = "a+b"
     }
 }
+

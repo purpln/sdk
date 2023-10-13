@@ -32,12 +32,12 @@ extension Piece: CustomStringConvertible {
             let a = sorted ? object.map { $0 }.sorted { $0.0 < $1.0 } : object.map { $0 }
             return "{" + terminator + a.map { $0.debugDescription + ":" + g + $1.string(depth: depth + 1, separator: separator, terminator: terminator, sorted: sorted) }
                 .map{ i + separator + $0 }.joined(separator:"," + terminator) + terminator
-            + i + "}" + (depth == 0 ? terminator : "")
+            + i + "}" + terminator//(depth == 0 ? terminator : "")
         }
     }
     
     public func string(space: Int = 0) -> String {
-        space == 0 ? string() : string(depth: 0, separator: String(repeating:" ", count: space), terminator:"\n", sorted: true)
+        space == 0 ? string(depth: 0, separator: "", terminator: "", sorted: false) : string(depth: 0, separator: String(repeating:" ", count: space), terminator:"\n", sorted: true)
     }
 }
 
@@ -80,11 +80,11 @@ extension Piece: ExpressibleByNilLiteral,
 }
 
 extension Piece {
-    public enum ContentType {
+    public enum Content {
         case error, null, bool, double, string, array, object
     }
     
-    public var type:ContentType {
+    public var type: Content {
         switch self {
         case .null:         return .null
         case .bool(_):      return .bool
@@ -122,6 +122,11 @@ extension Piece {
 extension Piece {
     func log(_ string: String) {
         print(string)
+    }
+    
+    public var count: Int {
+        guard case .array(let array) = self else { return 0 }
+        return array.count
     }
 }
 
@@ -252,59 +257,6 @@ extension Piece {
             default:
                 log("\(type) is not an object")
             }
-        }
-    }
-}
-
-extension Piece: Codable {
-    private static let codableTypes: [Codable.Type] = [
-        [Key: Value].self, [Value].self,
-        String.self,
-        Bool.self,
-        UInt.self, Int.self,
-        Double.self, Float.self,
-        UInt64.self, UInt32.self, UInt16.self, UInt8.self,
-        Int64.self,  Int32.self,  Int16.self,  Int8.self,
-    ]
-    public init(from decoder: Decoder) throws {
-        if let c = try? decoder.singleValueContainer(), !c.decodeNil() {
-            for type in Self.codableTypes {
-                switch type {
-                case let t as Bool.Type:         if let v = try? c.decode(t) { self = .bool(v); return }
-                case let t as Int.Type:          if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as Int8.Type:         if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as Int32.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as Int64.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as UInt.Type:         if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as UInt8.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as UInt16.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as UInt32.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as UInt64.Type:       if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as Float.Type:        if let v = try? c.decode(t) { self = .double(Double(v)); return }
-                case let t as Double.Type:       if let v = try? c.decode(t) { self = .double(v); return }
-                case let t as String.Type:       if let v = try? c.decode(t) { self = .string(v); return }
-                case let t as [Value].Type:      if let v = try? c.decode(t) { self = .array(v); return }
-                case let t as [Key: Value].Type: if let v = try? c.decode(t) { self = .object(v); return }
-                default: break
-                }
-            }
-        }
-        self = .null
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        if self.null {
-            try c.encodeNil()
-            return
-        }
-        switch self {
-        case .bool(let v):      try c.encode(v)
-        case .double(let v):    try c.encode(v)
-        case .string(let v):    try c.encode(v)
-        case .array(let v):     try c.encode(v)
-        case .object(let v):    try c.encode(v)
-        default:
-            break
         }
     }
 }
